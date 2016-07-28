@@ -20,7 +20,7 @@ export class WebdriverWebElement {
   getId: () => webdriver.promise.Promise<any>;
   getRawId: () => webdriver.promise.Promise<string>;
   serialize: () => webdriver.promise.Promise<any>;
-  findElement: (subLocator: Locator) => webdriver.promise.Promise<any>;
+  findElement: (subLocator: webdriver.By) => webdriver.promise.Promise<any>;
   click: () => webdriver.promise.Promise<void>;
   sendKeys: (...args: (string|webdriver.promise.Promise<string>)[]) =>
       webdriver.promise.Promise<void>;
@@ -94,14 +94,12 @@ export class WebdriverWebElement {
  * @returns {ElementArrayFinder}
  */
 export class ElementArrayFinder extends WebdriverWebElement {
-  getWebElements: Function;
-
   constructor(
-      public browser_: ProtractorBrowser, getWebElements?: Function,
+      public browser_: ProtractorBrowser,
+      public getWebElements: () => webdriver.promise.Promise<any> = null,
       public locator_?: any,
       public actionResults_: webdriver.promise.Promise<any> = null) {
     super();
-    this.getWebElements = getWebElements || null;
 
     // TODO(juliemr): might it be easier to combine this with our docs and just
     // wrap each
@@ -164,45 +162,49 @@ export class ElementArrayFinder extends WebdriverWebElement {
    */
   all(locator: Locator): ElementArrayFinder {
     let ptor = this.browser_;
-    let getWebElements = () => {
-      if (this.getWebElements === null) {
-        // This is the first time we are looking for an element
-        return ptor.waitForAngular('Locator: ' + locator).then(() => {
-          if (locator.findElementsOverride) {
-            return locator.findElementsOverride(ptor.driver, null, ptor.rootEl);
-          } else {
-            return ptor.driver.findElements(locator);
-          }
-        });
-      } else {
-        return this.getWebElements().then(
-            (parentWebElements: webdriver.WebElement[]) => {
-              // For each parent web element, find their children and construct
-              // a
-              // list of Promise<List<child_web_element>>
-              let childrenPromiseList = parentWebElements.map(
-                  (parentWebElement: webdriver.WebElement) => {
-                    return locator.findElementsOverride ?
-                        locator.findElementsOverride(
-                            ptor.driver, parentWebElement, ptor.rootEl) :
-                        parentWebElement.findElements(locator);
-                  });
-
-              // Resolve the list of Promise<List<child_web_elements>> and merge
-              // into
-              // a single list
-              return webdriver.promise.all(childrenPromiseList)
-                  .then((resolved: webdriver.WebElement[]) => {
-                    return resolved.reduce(
-                        (childrenList: webdriver.WebElement[],
-                         resolvedE: webdriver.WebElement) => {
-                          return childrenList.concat(resolvedE);
-                        },
-                        []);
-                  });
+    let getWebElements =
+        (): webdriver.promise.Promise<webdriver.WebElement[]> => {
+          if (this.getWebElements === null) {
+            // This is the first time we are looking for an element
+            return ptor.waitForAngular('Locator: ' + locator).then(() => {
+              if (locator.findElementsOverride) {
+                return locator.findElementsOverride(
+                    ptor.driver, null, ptor.rootEl);
+              } else {
+                return ptor.driver.findElements(locator);
+              }
             });
-      }
-    };
+          } else {
+            return this.getWebElements().then(
+                (parentWebElements: webdriver.WebElement[]) => {
+                  // For each parent web element, find their children and
+                  // construct
+                  // a
+                  // list of Promise<List<child_web_element>>
+                  let childrenPromiseList = parentWebElements.map(
+                      (parentWebElement: webdriver.WebElement) => {
+                        return locator.findElementsOverride ?
+                            locator.findElementsOverride(
+                                ptor.driver, parentWebElement, ptor.rootEl) :
+                            parentWebElement.findElements(locator);
+                      });
+
+                  // Resolve the list of Promise<List<child_web_elements>> and
+                  // merge
+                  // into
+                  // a single list
+                  return webdriver.promise.all(childrenPromiseList)
+                      .then((resolved: webdriver.WebElement[]) => {
+                        return resolved.reduce(
+                            (childrenList: webdriver.WebElement[],
+                             resolvedE: webdriver.WebElement) => {
+                              return childrenList.concat(resolvedE);
+                            },
+                            []);
+                      });
+                });
+          }
+        };
     return new ElementArrayFinder(this.browser_, getWebElements, locator);
   }
 
@@ -241,23 +243,24 @@ export class ElementArrayFinder extends WebdriverWebElement {
    *     of element that satisfy the filter function.
    */
   filter(filterFn: Function): ElementArrayFinder {
-    let getWebElements = () => {
-      return this.getWebElements().then((parentWebElements: any) => {
-        let list =
-            parentWebElements.map((parentWebElement: any, index: number) => {
-              let elementFinder = ElementFinder.fromWebElement_(
-                  this.browser_, parentWebElement, this.locator_);
+    let getWebElements =
+        (): webdriver.promise.Promise<webdriver.WebElement[]> => {
+          return this.getWebElements().then((parentWebElements: any) => {
+            let list = parentWebElements.map(
+                (parentWebElement: any, index: number) => {
+                  let elementFinder = ElementFinder.fromWebElement_(
+                      this.browser_, parentWebElement, this.locator_);
 
-              return filterFn(elementFinder, index);
+                  return filterFn(elementFinder, index);
+                });
+            return webdriver.promise.all(list).then((resolvedList: any) => {
+              return parentWebElements.filter(
+                  (parentWebElement: any, index: number) => {
+                    return resolvedList[index];
+                  });
             });
-        return webdriver.promise.all(list).then((resolvedList: any) => {
-          return parentWebElements.filter(
-              (parentWebElement: any, index: number) => {
-                return resolvedList[index];
-              });
-        });
-      });
-    };
+          });
+        };
     return new ElementArrayFinder(this.browser_, getWebElements, this.locator_);
   }
 
@@ -284,27 +287,29 @@ export class ElementArrayFinder extends WebdriverWebElement {
    * @returns {ElementFinder} finder representing element at the given index.
    */
   get(index: number): ElementFinder {
-    let getWebElements = () => {
-      return webdriver.promise.all([index, this.getWebElements()])
-          .then((results: any) => {
-            let i = results[0];
-            let parentWebElements = results[1];
+    let getWebElements =
+        (): webdriver.promise.Promise<webdriver.WebElement[]> => {
+          return webdriver.promise.all([index, this.getWebElements()])
+              .then((results: any) => {
+                let i = results[0];
+                let parentWebElements = results[1];
 
-            if (i < 0) {
-              // wrap negative indices
-              i = parentWebElements.length + i;
-            }
-            if (i < 0 || i >= parentWebElements.length) {
-              throw new webdriver.error.NoSuchElementError(
-                  'Index out of bound. ' +
-                  'Trying to access element at index: ' + index +
-                  ', but there are ' +
-                  'only ' + parentWebElements.length + ' elements that match ' +
-                  'locator ' + this.locator_.toString());
-            }
-            return [parentWebElements[i]];
-          });
-    };
+                if (i < 0) {
+                  // wrap negative indices
+                  i = parentWebElements.length + i;
+                }
+                if (i < 0 || i >= parentWebElements.length) {
+                  throw new webdriver.error.NoSuchElementError(
+                      'Index out of bound. ' +
+                      'Trying to access element at index: ' + index +
+                      ', but there are ' +
+                      'only ' + parentWebElements.length +
+                      ' elements that match ' +
+                      'locator ' + this.locator_.toString());
+                }
+                return [parentWebElements[i]];
+              });
+        };
     return new ElementArrayFinder(this.browser_, getWebElements, this.locator_)
         .toElementFinder_();
   }
@@ -751,24 +756,25 @@ export class ElementFinder extends WebdriverWebElement {
     // This filter verifies that there is only 1 element returned by the
     // elementArrayFinder. It will warn if there are more than 1 element and
     // throw an error if there are no elements.
-    let getWebElements = () => {
-      return elementArrayFinder.getWebElements().then(
-          (webElements: webdriver.WebElement[]) => {
-            if (webElements.length === 0) {
-              throw new webdriver.error.NoSuchElementError(
-                  'No element found using locator: ' +
-                  elementArrayFinder.locator().toString());
-            } else {
-              if (webElements.length > 1) {
-                logger.warn(
-                    'more than one element found for locator ' +
-                    elementArrayFinder.locator().toString() +
-                    ' - the first result will be used');
-              }
-              return [webElements[0]];
-            }
-          });
-    };
+    let getWebElements =
+        (): webdriver.promise.Promise<webdriver.WebElement[]> => {
+          return elementArrayFinder.getWebElements().then(
+              (webElements: webdriver.WebElement[]) => {
+                if (webElements.length === 0) {
+                  throw new webdriver.error.NoSuchElementError(
+                      'No element found using locator: ' +
+                      elementArrayFinder.locator().toString());
+                } else {
+                  if (webElements.length > 1) {
+                    logger.warn(
+                        'more than one element found for locator ' +
+                        elementArrayFinder.locator().toString() +
+                        ' - the first result will be used');
+                  }
+                  return [webElements[0]];
+                }
+              });
+        };
 
     // Store a copy of the underlying elementArrayFinder, but with the more
     // restrictive getWebElements (which checks that there is only 1 element).
@@ -789,7 +795,9 @@ export class ElementFinder extends WebdriverWebElement {
       browser: ProtractorBrowser, webElem: webdriver.WebElement,
       locator: Locator): ElementFinder {
     let getWebElements =
-        () => { return webdriver.promise.fulfilled([webElem]); };
+        (): webdriver.promise.Promise<webdriver.WebElement[]> => {
+          return webdriver.promise.fulfilled([webElem]);
+        };
     return new ElementArrayFinder(browser, getWebElements, locator)
         .toElementFinder_();
   }
@@ -964,9 +972,9 @@ export class ElementFinder extends WebdriverWebElement {
    * @returns {ElementFinder} which resolves to whether
    *     the element is present on the page.
    */
-  isPresent(): ElementFinder {
+  isPresent(): webdriver.promise.Promise<boolean> {
     return this.parentElementArrayFinder.getWebElements().then(
-        (arr: webdriver.WebElement[]) => {
+        (arr: any) => {
           if (arr.length === 0) {
             return false;
           }
@@ -1004,7 +1012,7 @@ export class ElementFinder extends WebdriverWebElement {
    * @returns {ElementFinder} which resolves to whether
    *     the subelement is present on the page.
    */
-  isElementPresent(subLocator: any): ElementFinder {
+  isElementPresent(subLocator: any): webdriver.promise.Promise<boolean> {
     if (!subLocator) {
       throw new Error(
           'SubLocator is not supplied as a parameter to ' +

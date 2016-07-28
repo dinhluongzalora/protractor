@@ -269,7 +269,8 @@ export class ProtractorBrowser extends Webdriver {
     // Mix all other driver functionality into Protractor.
     Object.getOwnPropertyNames(webdriver.WebDriver.prototype)
         .forEach((method: string) => {
-          if (!this[method] && typeof webdriverInstance[method] == 'function') {
+          if (!this[method] &&
+              typeof(webdriverInstance as any)[method] == 'function') {
             if (methodsToSync.indexOf(method) !== -1) {
               ptorMixin(
                   this, webdriverInstance, method,
@@ -547,7 +548,8 @@ export class ProtractorBrowser extends Webdriver {
    * @returns {!webdriver.promise.Promise} A promise that will be resolved to
    *      the located {@link webdriver.WebElement}.
    */
-  findElement(locator: Locator): webdriver.WebElement {
+  findElement(locator: Locator):
+      webdriver.promise.Promise<webdriver.WebElement> {
     return this.element(locator).getWebElement();
   }
 
@@ -567,11 +569,12 @@ export class ProtractorBrowser extends Webdriver {
    * @returns {!webdriver.promise.Promise} A promise that will resolve to whether
    *     the element is present on the page.
    */
-  isElementPresent(locatorOrElement: webdriver.Locator|
+  isElementPresent(locatorOrElement: webdriver.By|
                    webdriver.WebElement): webdriver.promise.Promise<any> {
-    let element = (locatorOrElement.isPresent) ? locatorOrElement :
-                                                 this.element(locatorOrElement);
-    return element.isPresent();
+    let element = ((locatorOrElement as any).isPresent) ?
+        locatorOrElement :
+        this.element(locatorOrElement);
+    return (element as any).isPresent();
   }
 
   /**

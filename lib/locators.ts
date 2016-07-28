@@ -1,26 +1,27 @@
 import * as util from 'util';
-let webdriver: any = require('selenium-webdriver');
+let webDriver: any = require('selenium-webdriver');
 let clientSideScripts: any = require('./clientsidescripts');
 
 // Explicitly define webdriver.By.
 export class WebdriverBy {
-  className: (className: string) => Locator = webdriver.By.className;
-  css: (css: string) => Locator = webdriver.By.css;
-  id: (id: string) => Locator = webdriver.By.id;
-  linkText: (linkText: string) => Locator = webdriver.By.linkText;
-  js: (js: string) => Locator = webdriver.By.js;
-  name: (name: string) => Locator = webdriver.By.name;
+  className: (className: string) => Locator = webDriver.By.className;
+  css: (css: string) => Locator = webDriver.By.css;
+  id: (id: string) => Locator = webDriver.By.id;
+  linkText: (linkText: string) => Locator = webDriver.By.linkText;
+  js: (js: string) => Locator = webDriver.By.js;
+  name: (name: string) => Locator = webDriver.By.name;
   partialLinkText:
-      (partialText: string) => Locator = webdriver.By.partialLinkText;
-  tagName: (tagName: string) => Locator = webdriver.By.tagName;
-  xpath: (xpath: string) => Locator = webdriver.By.xpath;
+      (partialText: string) => Locator = webDriver.By.partialLinkText;
+  tagName: (tagName: string) => Locator = webDriver.By.tagName;
+  xpath: (xpath: string) => Locator = webDriver.By.xpath;
 }
 
 // Protractor locator strategy
 export interface Locator {
   findElementsOverride?:
       (driver: webdriver.WebDriver, using: webdriver.WebElement,
-       rootSelector: string) => webdriver.WebElement;
+       rootSelector:
+           string) => webdriver.promise.Promise<webdriver.WebElement[]>;
   row?: (index: number) => Locator;
   column?: (index: string) => Locator;
 }
@@ -73,7 +74,7 @@ export class ProtractorBy extends WebdriverBy {
     this[name] = function(): Locator {
       var locatorArguments = arguments;
       return {
-        findElementsOverride: function(driver, using, rootSelector) {
+        findElementsOverride: (driver, using, rootSelector) => {
           var findElementArguments: any[] = [script];
           for (var i = 0; i < locatorArguments.length; i++) {
             findElementArguments.push(locatorArguments[i]);
@@ -82,7 +83,7 @@ export class ProtractorBy extends WebdriverBy {
           findElementArguments.push(rootSelector);
 
           return driver.findElements(
-              webdriver.By.js.apply(webdriver.By, findElementArguments));
+              webDriver.By.js.apply(webDriver.By, findElementArguments));
         },
         toString: function toString() {
           return 'by.' + name + '("' +
@@ -127,7 +128,7 @@ export class ProtractorBy extends WebdriverBy {
   binding(bindingDescriptor: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findBindings, bindingDescriptor, false, using,
             rootSelector));
       },
@@ -159,7 +160,7 @@ export class ProtractorBy extends WebdriverBy {
   exactBinding(bindingDescriptor: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findBindings, bindingDescriptor, true, using,
             rootSelector));
       },
@@ -187,7 +188,7 @@ export class ProtractorBy extends WebdriverBy {
   model(model: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findByModel, model, using, rootSelector));
       },
       toString: function toString() { return 'by.model("' + model + '")'; }
@@ -209,7 +210,7 @@ export class ProtractorBy extends WebdriverBy {
   buttonText(searchText: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findByButtonText, searchText, using,
             rootSelector));
       },
@@ -234,7 +235,7 @@ export class ProtractorBy extends WebdriverBy {
   partialButtonText(searchText: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findByPartialButtonText, searchText, using,
             rootSelector));
       },
@@ -249,7 +250,7 @@ export class ProtractorBy extends WebdriverBy {
     var name = 'by.' + (exact ? 'exactR' : 'r') + 'epeater';
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findAllRepeaterRows, repeatDescriptor, exact,
             using, rootSelector));
       },
@@ -259,7 +260,7 @@ export class ProtractorBy extends WebdriverBy {
       row: function(index) {
         return {
           findElementsOverride: function(driver, using, rootSelector) {
-            return driver.findElements(webdriver.By.js(
+            return driver.findElements(webDriver.By.js(
                 clientSideScripts.findRepeaterRows, repeatDescriptor, exact,
                 index, using, rootSelector));
           },
@@ -269,7 +270,7 @@ export class ProtractorBy extends WebdriverBy {
           column: function(binding) {
             return {
               findElementsOverride: function(driver, using, rootSelector) {
-                return driver.findElements(webdriver.By.js(
+                return driver.findElements(webDriver.By.js(
                     clientSideScripts.findRepeaterElement, repeatDescriptor,
                     exact, index, binding, using, rootSelector));
               },
@@ -284,7 +285,7 @@ export class ProtractorBy extends WebdriverBy {
       column: function(binding) {
         return {
           findElementsOverride: function(driver, using, rootSelector) {
-            return driver.findElements(webdriver.By.js(
+            return driver.findElements(webDriver.By.js(
                 clientSideScripts.findRepeaterColumn, repeatDescriptor, exact,
                 binding, using, rootSelector));
           },
@@ -295,7 +296,7 @@ export class ProtractorBy extends WebdriverBy {
           row: function(index) {
             return {
               findElementsOverride: function(driver, using, rootSelector) {
-                return driver.findElements(webdriver.By.js(
+                return driver.findElements(webDriver.By.js(
                     clientSideScripts.findRepeaterElement, repeatDescriptor,
                     exact, index, binding, using, rootSelector));
               },
@@ -410,7 +411,7 @@ export class ProtractorBy extends WebdriverBy {
   cssContainingText(cssSelector: string, searchText: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findByCssContainingText, cssSelector, searchText,
             using, rootSelector));
       },
@@ -443,7 +444,7 @@ export class ProtractorBy extends WebdriverBy {
   options(optionsDescriptor: string): Locator {
     return {
       findElementsOverride: function(driver, using, rootSelector) {
-        return driver.findElements(webdriver.By.js(
+        return driver.findElements(webDriver.By.js(
             clientSideScripts.findByOptions, optionsDescriptor, using,
             rootSelector));
       },
@@ -477,6 +478,6 @@ export class ProtractorBy extends WebdriverBy {
   deepCss(selector: string): Locator {
     // TODO(julie): syntax will change from /deep/ to >>> at some point.
     // When that is supported, switch it here.
-    return webdriver.By.css('* /deep/ ' + selector);
+    return webDriver.By.css('* /deep/ ' + selector);
   };
 }

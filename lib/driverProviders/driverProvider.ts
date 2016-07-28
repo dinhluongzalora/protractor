@@ -61,7 +61,7 @@ export class DriverProvider {
     if (driver.getSession() === undefined) {
       deferred.resolve();
     } else {
-      driver.getSession().then((session_: string) => {
+      driver.getSession().then((session_: webdriver.Session) => {
         if (session_) {
           driver.quit().then(function() { deferred.resolve(); });
         } else {
