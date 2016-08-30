@@ -48,3 +48,7 @@ declare namespace webdriver {
 }
 
 declare interface HttpProxyAgent { constructor(opts: Object): HttpProxyAgent; }
+
+declare interface Error {
+  code: number;
+}
