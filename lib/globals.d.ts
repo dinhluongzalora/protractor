@@ -35,7 +35,7 @@ declare interface IError extends Error {
   stack?: string;
 }
 
-declare interface String { startsWith: Function; }
+// declare interface String { startsWith: Function; }
 
 declare namespace webdriver {
   namespace promise {

@@ -238,68 +238,74 @@ let initFn = function(configFile: string, additionalConfig: Config) {
           }
         }
 
-        let deferred = q.defer<any>();  // Resolved when all tasks are completed
-        let createNextTaskRunner = () => {
-          var task = scheduler.nextTask();
-          if (task) {
-            let taskRunner =
-                new TaskRunner(configFile, additionalConfig, task, forkProcess);
-            taskRunner.run()
-                .then((result) => {
-                  if (result.exitCode && !result.failedCount) {
+        // let deferred = q.defer<any>();  // Resolved when all tasks are
+        // completed
+
+        let createNextTaskRunner = (): Promise<any> => {
+          return new Promise<any>((resolve, reject) => {
+            var task = scheduler.nextTask();
+
+            if (task) {
+              let taskRunner = new TaskRunner(
+                  configFile, additionalConfig, task, forkProcess);
+              taskRunner.run()
+                  .then((result) => {
+                    if (result.exitCode && !result.failedCount) {
+                      logger.error(
+                          'Runner process exited unexpectedly with error code: ' +
+                          result.exitCode);
+                    }
+                    taskResults_.add(result);
+                    task.done();
+                    createNextTaskRunner();
+                    // If all tasks are finished
+                    if (scheduler.numTasksOutstanding() === 0) {
+                      resolve();
+                    }
+                    logger.info(
+                        scheduler.countActiveTasks() +
+                        ' instance(s) of WebDriver still running');
+                  })
+                  .catch((err: Error) => {
                     logger.error(
-                        'Runner process exited unexpectedly with error code: ' +
-                        result.exitCode);
-                  }
-                  taskResults_.add(result);
-                  task.done();
-                  createNextTaskRunner();
-                  // If all tasks are finished
-                  if (scheduler.numTasksOutstanding() === 0) {
-                    deferred.resolve();
-                  }
-                  logger.info(
-                      scheduler.countActiveTasks() +
-                      ' instance(s) of WebDriver still running');
-                })
-                .catch((err: Error) => {
-                  logger.error(
-                      'Error:', (err as any).stack || err.message || err);
-                  cleanUpAndExit(RUNNERS_FAILED_EXIT_CODE);
-                });
-          }
+                        'Error:', (err as any).stack || err.message || err);
+                    cleanUpAndExit(RUNNERS_FAILED_EXIT_CODE);
+                  });
+            }
+          });
         };
+
+
         // Start `scheduler.maxConcurrentTasks()` workers for handling tasks in
         // the beginning. As a worker finishes a task, it will pick up the next
         // task
         // from the scheduler's queue until all tasks are gone.
+        var taskPromises: Promise<any>[] = [];
         for (var i = 0; i < scheduler.maxConcurrentTasks(); ++i) {
-          createNextTaskRunner();
+          taskPromises.push(createNextTaskRunner());
         }
+
         logger.info(
             'Running ' + scheduler.countActiveTasks() +
             ' instances of WebDriver');
 
         // By now all runners have completed.
-        deferred.promise
-            .then(function() {
-              // Save results if desired
-              if (config.resultJsonOutputFile) {
-                taskResults_.saveResults(config.resultJsonOutputFile);
-              }
+        Promise.all(taskPromises).then(function() {
+          // Save results if desired
+          if (config.resultJsonOutputFile) {
+            taskResults_.saveResults(config.resultJsonOutputFile);
+          }
 
-              taskResults_.reportSummary();
-              let exitCode = 0;
-              if (taskResults_.totalProcessFailures() > 0) {
-                exitCode = RUNNERS_FAILED_EXIT_CODE;
-              } else if (taskResults_.totalSpecFailures() > 0) {
-                exitCode = 1;
-              }
-              return cleanUpAndExit(exitCode);
-            })
-            .done();
-      })
-      .done();
+          taskResults_.reportSummary();
+          let exitCode = 0;
+          if (taskResults_.totalProcessFailures() > 0) {
+            exitCode = RUNNERS_FAILED_EXIT_CODE;
+          } else if (taskResults_.totalSpecFailures() > 0) {
+            exitCode = 1;
+          }
+          return cleanUpAndExit(exitCode);
+        });
+      });
 };
 
 export let init = initFn;

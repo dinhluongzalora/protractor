@@ -3,8 +3,10 @@
  *  It is responsible for setting up the account object, tearing
  *  it down, and setting up the driver correctly.
  */
-import * as q from 'q';
+import {WebDriver} from 'selenium-webdriver';
+
 import {Config} from '../config';
+
 let webdriver = require('selenium-webdriver');
 
 export class DriverProvider {
@@ -51,41 +53,41 @@ export class DriverProvider {
    * @public
    * @param webdriver instance
    */
-  quitDriver(driver: webdriver.WebDriver): q.Promise<webdriver.WebDriver> {
+  quitDriver(driver: WebDriver): Promise<WebDriver> {
     let driverIndex = this.drivers_.indexOf(driver);
     if (driverIndex >= 0) {
       this.drivers_.splice(driverIndex, 1);
     }
 
-    let deferred = q.defer<webdriver.WebDriver>();
-    if (driver.getSession() === undefined) {
-      deferred.resolve();
-    } else {
-      driver.getSession().then((session_: string) => {
-        if (session_) {
-          driver.quit().then(function() { deferred.resolve(); });
-        } else {
-          deferred.resolve();
-        }
-      });
-    }
-    return deferred.promise;
+    return new Promise<WebDriver>((resolve, reject) => {
+      if (driver.getSession() === undefined) {
+        resolve();
+      } else {
+        driver.getSession().then((session_: string) => {
+          if (session_) {
+            driver.quit().then(function() { resolve(); });
+          } else {
+            resolve();
+          }
+        });
+      }
+    });
   }
 
   /**
    * Default update job method.
    * @return a promise
    */
-  updateJob(update: any): q.Promise<any> {
-    return q.fcall(function() {});
+  updateJob(update: any): Promise<any> {
+    return new Promise<any>((resolve, reject) => { resolve(function() {}); });
   };
 
   /**
    * Default setup environment method.
    * @return a promise
    */
-  setupEnv(): q.Promise<any> {
-    return q.fcall(function() {});
+  setupEnv(): Promise<any> {
+    return new Promise<any>((resolve, reject) => { resolve(function() {}); });
   };
 
   /**
@@ -96,8 +98,8 @@ export class DriverProvider {
    * @return {q.promise} A promise which will resolve when the environment
    *     is down.
    */
-  teardownEnv(): q.Promise<q.Promise<webdriver.WebDriver>[]> {
-    return q.all<any>(this.drivers_.map(
-        (driver: webdriver.WebDriver) => { return this.quitDriver(driver); }));
+  teardownEnv(): Promise<Promise<WebDriver>[]> {
+    return Promise.all<any>(this.drivers_.map(
+        (driver: WebDriver) => { return this.quitDriver(driver); }));
   }
 }

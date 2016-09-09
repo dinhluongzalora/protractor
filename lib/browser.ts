@@ -492,7 +492,7 @@ export class ProtractorBrowser extends Webdriver {
                     'Timed out waiting for Protractor to synchronize with ' +
                     'the page after ' + timeout + '. Please see ' +
                     'https://github.com/angular/protractor/blob/master/docs/faq.md';
-                if (description.startsWith(' - Locator: ')) {
+                if (description.indexOf(' - Locator: ') === 0) {
                   errMsg +=
                       '\nWhile waiting for element with locator' + description;
                 }

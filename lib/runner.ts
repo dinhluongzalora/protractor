@@ -269,7 +269,7 @@ export class Runner extends EventEmitter {
    * @return {q.Promise} A promise which resolves to the exit code of the tests.
    * @public
    */
-  run(): q.Promise<any> {
+  run(): Promise<any> {
     let testPassed: boolean;
     let plugins = this.plugins_ = new Plugins(this.config_);
     let pluginPostTestPromises: any;
@@ -385,6 +385,6 @@ export class Runner extends EventEmitter {
           var exitCode = testPassed ? 0 : 1;
           return this.exit_(exitCode);
         })
-        .fin(() => { return this.shutdown_(); });
+        .then(() => { return this.shutdown_(); });
   }
 }

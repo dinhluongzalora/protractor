@@ -5,7 +5,6 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import * as q from 'q';
 import * as util from 'util';
 
 import {Config} from '../config';
@@ -34,7 +33,7 @@ export class Direct extends DriverProvider {
    * @return {q.promise} A promise which will resolve when the environment is
    *     ready to test.
    */
-  setupEnv(): q.Promise<any> {
+  setupEnv(): Promise<any> {
     switch (this.config_.capabilities.browserName) {
       case 'chrome':
         logger.info('Using ChromeDriver directly...');
@@ -47,7 +46,7 @@ export class Direct extends DriverProvider {
             logger, 'browserName ' + this.config_.capabilities.browserName +
                 ' is not supported with directConnect.');
     }
-    return q.fcall(function() {});
+    return new Promise<any>((resolve, reject) => { resolve(function() {}); });
   }
 
   /**
